@@ -1,0 +1,94 @@
+version: '3'
+
+vars:
+  APP_NAME: magina
+  BUILD_DIR: dist
+  VERSION:
+    sh: git describe --tags --always --dirty
+  LDFLAGS: -ldflags="-X main.version={{.VERSION}} -s -w"
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  build:
+    desc: "Build the application for the current OS/ARCH"
+    cmds:
+      - echo "Building {{.APP_NAME}} for {{OS}}/{{ARCH}}..."
+      - go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}{{exeExt}} ./cmd/main.go
+    env:
+      GOOS: "{{OS}}"
+      GOARCH: "{{ARCH}}"
+
+  test:
+    desc: "Run tests"
+    cmds:
+      - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+  lint:
+    desc: "Run linter"
+    cmds:
+      - golangci-lint run
+
+  release:
+    desc: "Build binaries for all supported platforms"
+    deps: [clean]
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - task: build-all
+
+  build-all:
+    desc: "Build for all platforms"
+    deps: [build-linux, build-windows, build-macos]
+
+  build-linux:
+    desc: "Build Linux binaries"
+    internal: true
+    cmds:
+      - echo "Building for Linux..."
+      - GOOS=linux GOARCH=amd64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-linux-amd64 ./cmd/main.go
+      - GOOS=linux GOARCH=arm64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-linux-arm64 ./cmd/main.go
+      - echo "Compressing Linux binaries..."
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-linux-amd64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-linux-amd64
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-linux-arm64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-linux-arm64
+      - rm {{.BUILD_DIR}}/{{.APP_NAME}}-linux-*[^z]
+
+  build-windows:
+    desc: "Build Windows binaries"
+    internal: true
+    cmds:
+      - echo "Building for Windows..."
+      - GOOS=windows GOARCH=amd64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-windows-amd64.exe ./cmd/main.go
+      - GOOS=windows GOARCH=arm64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-windows-arm64.exe ./cmd/main.go
+      - echo "Compressing Windows binaries..."
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-windows-amd64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-windows-amd64.exe
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-windows-arm64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-windows-arm64.exe
+      - rm {{.BUILD_DIR}}/{{.APP_NAME}}-windows-*.exe
+
+  build-macos:
+    desc: "Build macOS binaries"
+    internal: true
+    cmds:
+      - echo "Building for macOS..."
+      - GOOS=darwin GOARCH=amd64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-darwin-amd64 ./cmd/main.go
+      - GOOS=darwin GOARCH=arm64 go build {{.LDFLAGS}} -o {{.BUILD_DIR}}/{{.APP_NAME}}-darwin-arm64 ./cmd/main.go
+      - echo "Compressing macOS binaries..."
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-darwin-amd64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-darwin-amd64
+      - tar czf {{.BUILD_DIR}}/{{.APP_NAME}}-darwin-arm64.tar.gz -C {{.BUILD_DIR}} {{.APP_NAME}}-darwin-arm64
+      - rm {{.BUILD_DIR}}/{{.APP_NAME}}-darwin-*[^z]
+
+  clean:
+    desc: "Clean build directory"
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+
+  install:
+    desc: "Install development tools"
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+  generate-docs:
+    desc: "Generate CLI documentation"
+    cmds:
+      - go run ./cmd/main.go --help > docs/cli.txt
