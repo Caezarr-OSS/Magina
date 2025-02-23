@@ -2,6 +2,8 @@
 
 Magina is a Command Line Interface (CLI) tool for managing and migrating OCI (Open Container Initiative) images between different registries. It uses a custom BRMS (Block Relation Mapping Syntax) configuration format to define image mappings.
 
+![Magina Logo](assets/img/magina-logo.png)
+
 ## Features
 
 - Export images from source registry
