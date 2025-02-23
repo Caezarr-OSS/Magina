@@ -30,81 +30,81 @@ func init() {
 
 	rootCmd = &cobra.Command{
 		Use:     "magina",
-		Short:   "Manage OCI images between registries",
-		Long:    `Magina is a tool for managing OCI images between registries using BRMS configuration.`,
+		Short:   "Gérer les images OCI entre les registres",
+		Long:    `Magina est un outil pour gérer les images OCI entre les registres en utilisant la configuration BRMS.`,
 		Version: version,
 	}
 
-	// Commande export
+	// Commande d'exportation
 	exportCmd = &cobra.Command{
 		Use:   "export",
-		Short: "Export images from source registry to local host",
-		Long: `Export images from the source registry specified in the BRMS configuration to the local host.
-The configuration file must contain exactly one block with the source registry information.
-Format: [protocol://export-host|]
-Example: magina export -c config.brms`,
+		Short: "Exporter les images du registre source vers l'hôte local",
+		Long: `Exporter les images du registre source spécifié dans la configuration BRMS vers l'hôte local.
+La configuration doit contenir exactement un bloc avec les informations du registre source.
+Format : [protocole://export-host|]
+Exemple : magina export -c config.brms`,
 		RunE: handleExport,
 	}
 
-	// Commande convert
+	// Commande de conversion
 	convertCmd = &cobra.Command{
 		Use:   "convert",
-		Short: "Convert local images to new tags",
-		Long: `Convert (retag) local images according to the BRMS configuration.
-Requires images to be present locally from a previous export operation.
-Format: [protocol://source-host|protocol://dest-host]
-Example: magina convert -c config.brms`,
+		Short: "Convertir les images locales en nouveaux tags",
+		Long: `Convertir (retaguer) les images locales selon la configuration BRMS.
+Nécessite la présence des images locales à partir d'une opération d'exportation précédente.
+Format : [protocole://source-host|protocole://dest-host]
+Exemple : magina convert -c config.brms`,
 		RunE: handleConvert,
 	}
 
-	// Commande import
+	// Commande d'importation
 	importCmd = &cobra.Command{
 		Use:   "import",
-		Short: "Import local images to destination registry",
-		Long: `Import local images to the destination registry specified in the BRMS configuration.
-The configuration file must contain exactly one block with the destination registry information.
-Requires images to be present locally with correct tags from previous convert operation.
-Format: [|protocol://import-host]
-Example: magina import -c config.brms`,
+		Short: "Importer les images locales vers le registre de destination",
+		Long: `Importer les images locales vers le registre de destination spécifié dans la configuration BRMS.
+La configuration doit contenir exactement un bloc avec les informations du registre de destination.
+Nécessite la présence des images locales avec les tags corrects à partir d'une opération de conversion précédente.
+Format : [|protocole://import-host]
+Exemple : magina import -c config.brms`,
 		RunE: handleImport,
 	}
 
-	// Commande transfer
+	// Commande de transfert
 	transferCmd = &cobra.Command{
 		Use:   "transfer",
-		Short: "Complete transfer workflow (export + convert + import)",
-		Long: `Execute the complete transfer workflow:
-1. Export images from source registry to local host
-2. Convert (retag) images locally
-3. Import images to destination registry
-Format: [protocol://source-host|protocol://dest-host]
-Example: magina transfer -c config.brms`,
+		Short: "Effectuer le workflow de transfert complet (export + conversion + importation)",
+		Long: `Exécuter le workflow de transfert complet :
+1. Exporter les images du registre source vers l'hôte local
+2. Convertir (retaguer) les images locales
+3. Importer les images vers le registre de destination
+Format : [protocole://source-host|protocole://dest-host]
+Exemple : magina transfer -c config.brms`,
 		RunE: handleTransfer,
 	}
 
-	// Commande validate
+	// Commande de validation
 	validateCmd = &cobra.Command{
 		Use:   "validate",
-		Short: "Validate BRMS configuration file",
-		Long: `Validate a BRMS configuration file without performing any operations.
-Checks:
-- Syntax validation
-- Protocol specification
-- Single block requirement
-- Registry accessibility
-Example: magina validate -c config.brms`,
+		Short: "Valider le fichier de configuration BRMS",
+		Long: `Valider un fichier de configuration BRMS sans effectuer d'opérations.
+Vérifications :
+- Validation de la syntaxe
+- Spécification du protocole
+- Exigence d'un seul bloc
+- Accessibilité du registre
+Exemple : magina validate -c config.brms`,
 		RunE: handleValidate,
 	}
 
 	// Flags globaux
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "BRMS configuration file (required)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Fichier de configuration BRMS (obligatoire)")
 	rootCmd.MarkPersistentFlagRequired("config")
-	rootCmd.PersistentFlags().IntVarP(&verboseLevel, "verbose", "v", 0, "Verbose level (0-3)")
+	rootCmd.PersistentFlags().IntVarP(&verboseLevel, "verbose", "v", 0, "Niveau de verbosité (0-3)")
 
 	// Flags pour les commandes de transfert
 	for _, cmd := range []*cobra.Command{exportCmd, importCmd, convertCmd, transferCmd} {
-		cmd.Flags().BoolVar(&cleanOnError, "clean-on-error", false, "Clean downloaded/converted images on error")
-		cmd.Flags().BoolVar(&resumeOnError, "resume", false, "Try to resume from last successful operation")
+		cmd.Flags().BoolVar(&cleanOnError, "clean-on-error", false, "Nettoyer les images téléchargées/converties en cas d'erreur")
+		cmd.Flags().BoolVar(&resumeOnError, "resume", false, "Essayer de reprendre à partir de la dernière opération réussie")
 	}
 
 	// Ajouter les sous-commandes
@@ -122,36 +122,36 @@ func main() {
 	}
 }
 
-// Les handlers seront implémentés dans des fichiers séparés
+// Les gestionnaires seront implémentés dans des fichiers séparés
 func handleExport(cmd *cobra.Command, args []string) error {
 	config, err := internal.ParseConfig(cfgFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return fmt.Errorf("échec de l'analyse de la configuration : %w", err)
 	}
 
 	if len(config.Blocks) != 1 {
-		return fmt.Errorf("export requires exactly one block in configuration, found %d", len(config.Blocks))
+		return fmt.Errorf("l'export nécessite exactement un bloc dans la configuration, trouvé %d", len(config.Blocks))
 	}
 
 	block := config.Blocks[0]
 
-	// Récupérer les credentials pour le registry source
+	// Obtenir les informations d'identification pour le registre source
 	creds, err := session.GetCredentials(block.SourceRegistry.Host)
 	if err != nil {
-		return fmt.Errorf("failed to get credentials: %w", err)
+		return fmt.Errorf("échec de l'obtention des informations d'identification : %w", err)
 	}
 
-	// Créer les options d'export
+	// Créer les options d'exportation
 	options := internal.ExportOptions{
 		CleanOnError: cleanOnError,
 		VerboseLevel: verboseLevel,
 		Credentials:  creds,
 	}
 
-	// Créer le gestionnaire d'export
+	// Créer le gestionnaire d'exportation
 	handler := internal.NewExportHandler(cmd.Context(), options)
 
-	// Lancer l'export
+	// Démarrer l'exportation
 	results := handler.ExportImages(block)
 
 	// Compteurs pour le suivi
@@ -162,26 +162,26 @@ func handleExport(cmd *cobra.Command, args []string) error {
 		totalImages++
 		if result.Error != nil {
 			failureCount++
-			fmt.Printf("❌ FAILED  %s\n", result.SourceImage)
+			fmt.Printf("❌ ÉCHEC  %s\n", result.SourceImage)
 			if verboseLevel > 0 {
-				fmt.Printf("   Error: %v\n", result.Error)
+				fmt.Printf("   Erreur : %v\n", result.Error)
 			}
 		} else {
 			successCount++
 			if verboseLevel > 0 {
-				fmt.Printf("✅ SUCCESS %s -> %s\n", result.SourceImage, result.LocalImage)
+				fmt.Printf("✅ SUCCÈS %s -> %s\n", result.SourceImage, result.LocalImage)
 			}
 		}
 	}
 
 	// Afficher le résumé
-	fmt.Printf("\nExport Summary:\n")
-	fmt.Printf("Total Images:  %d\n", totalImages)
-	fmt.Printf("Successful:    %d\n", successCount)
-	fmt.Printf("Failed:        %d\n", failureCount)
+	fmt.Printf("\nRésumé de l'exportation :\n")
+	fmt.Printf("Total des images :  %d\n", totalImages)
+	fmt.Printf("Réussites :    %d\n", successCount)
+	fmt.Printf("Échecs :        %d\n", failureCount)
 
 	if failureCount > 0 {
-		return fmt.Errorf("%d images failed to export", failureCount)
+		return fmt.Errorf("%d images n'ont pas pu être exportées", failureCount)
 	}
 
 	return nil
@@ -190,11 +190,11 @@ func handleExport(cmd *cobra.Command, args []string) error {
 func handleConvert(cmd *cobra.Command, args []string) error {
 	config, err := internal.ParseConfig(cfgFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return fmt.Errorf("échec de l'analyse de la configuration : %w", err)
 	}
 
 	if len(config.Blocks) != 1 {
-		return fmt.Errorf("convert requires exactly one block in configuration, found %d", len(config.Blocks))
+		return fmt.Errorf("la conversion nécessite exactement un bloc dans la configuration, trouvé %d", len(config.Blocks))
 	}
 
 	block := config.Blocks[0]
@@ -208,7 +208,7 @@ func handleConvert(cmd *cobra.Command, args []string) error {
 	// Créer le gestionnaire de conversion
 	handler := internal.NewConvertHandler(cmd.Context(), options)
 
-	// Lancer la conversion
+	// Démarrer la conversion
 	results := handler.ConvertImages(block)
 
 	// Compteurs pour le suivi
@@ -219,26 +219,22 @@ func handleConvert(cmd *cobra.Command, args []string) error {
 		totalImages++
 		if result.Error != nil {
 			failureCount++
-			fmt.Printf("❌ FAILED  %s -> %s\n", result.SourceImage, result.DestinationImage)
-			if verboseLevel > 0 {
-				fmt.Printf("   Error: %v\n", result.Error)
-			}
-		} else {
-			successCount++
-			if verboseLevel > 0 {
-				fmt.Printf("✅ SUCCESS %s -> %s\n", result.SourceImage, result.DestinationImage)
-			}
+			fmt.Printf("❌ ÉCHEC  %s -> %s : %v\n", result.SourceImage, result.DestinationImage, result.Error)
+			return fmt.Errorf("échec de la conversion de l'image : %w", result.Error)
 		}
+
+		successCount++
+		fmt.Printf("✅ SUCCÈS %s -> %s\n", result.SourceImage, result.DestinationImage)
 	}
 
 	// Afficher le résumé
-	fmt.Printf("\nConversion Summary:\n")
-	fmt.Printf("Total Images:  %d\n", totalImages)
-	fmt.Printf("Successful:    %d\n", successCount)
-	fmt.Printf("Failed:        %d\n", failureCount)
+	fmt.Printf("\nRésumé de la conversion :\n")
+	fmt.Printf("Total des images :  %d\n", totalImages)
+	fmt.Printf("Réussites :    %d\n", successCount)
+	fmt.Printf("Échecs :        %d\n", failureCount)
 
 	if failureCount > 0 {
-		return fmt.Errorf("%d images failed to convert", failureCount)
+		return fmt.Errorf("%d images n'ont pas pu être converties", failureCount)
 	}
 
 	return nil
@@ -247,32 +243,32 @@ func handleConvert(cmd *cobra.Command, args []string) error {
 func handleImport(cmd *cobra.Command, args []string) error {
 	config, err := internal.ParseConfig(cfgFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return fmt.Errorf("échec de l'analyse de la configuration : %w", err)
 	}
 
 	if len(config.Blocks) != 1 {
-		return fmt.Errorf("import requires exactly one block in configuration, found %d", len(config.Blocks))
+		return fmt.Errorf("l'importation nécessite exactement un bloc dans la configuration, trouvé %d", len(config.Blocks))
 	}
 
 	block := config.Blocks[0]
 
-	// Récupérer les credentials pour le registry de destination
+	// Obtenir les informations d'identification pour le registre de destination
 	creds, err := session.GetCredentials(block.DestinationRegistry.Host)
 	if err != nil {
-		return fmt.Errorf("failed to get credentials: %w", err)
+		return fmt.Errorf("échec de l'obtention des informations d'identification : %w", err)
 	}
 
-	// Créer les options d'import
+	// Créer les options d'importation
 	options := internal.ImportOptions{
 		CleanOnError: cleanOnError,
 		VerboseLevel: verboseLevel,
 		Credentials:  creds,
 	}
 
-	// Créer le gestionnaire d'import
+	// Créer le gestionnaire d'importation
 	handler := internal.NewImportHandler(cmd.Context(), options)
 
-	// Lancer l'import
+	// Démarrer l'importation
 	results := handler.ImportImages(block)
 
 	// Compteurs pour le suivi
@@ -283,26 +279,26 @@ func handleImport(cmd *cobra.Command, args []string) error {
 		totalImages++
 		if result.Error != nil {
 			failureCount++
-			fmt.Printf("❌ FAILED  %s\n", result.DestinationImage)
+			fmt.Printf("❌ ÉCHEC  %s\n", result.DestinationImage)
 			if verboseLevel > 0 {
-				fmt.Printf("   Error: %v\n", result.Error)
+				fmt.Printf("   Erreur : %v\n", result.Error)
 			}
 		} else {
 			successCount++
 			if verboseLevel > 0 {
-				fmt.Printf("✅ SUCCESS %s\n", result.DestinationImage)
+				fmt.Printf("✅ SUCCÈS %s\n", result.DestinationImage)
 			}
 		}
 	}
 
 	// Afficher le résumé
-	fmt.Printf("\nImport Summary:\n")
-	fmt.Printf("Total Images:  %d\n", totalImages)
-	fmt.Printf("Successful:    %d\n", successCount)
-	fmt.Printf("Failed:        %d\n", failureCount)
+	fmt.Printf("\nRésumé de l'importation :\n")
+	fmt.Printf("Total des images :  %d\n", totalImages)
+	fmt.Printf("Réussites :    %d\n", successCount)
+	fmt.Printf("Échecs :        %d\n", failureCount)
 
 	if failureCount > 0 {
-		return fmt.Errorf("%d images failed to import", failureCount)
+		return fmt.Errorf("%d images n'ont pas pu être importées", failureCount)
 	}
 
 	return nil
@@ -311,11 +307,11 @@ func handleImport(cmd *cobra.Command, args []string) error {
 func handleTransfer(cmd *cobra.Command, args []string) error {
 	config, err := internal.ParseConfig(cfgFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return fmt.Errorf("échec de l'analyse de la configuration : %w", err)
 	}
 
 	if len(config.Blocks) != 1 {
-		return fmt.Errorf("transfer requires exactly one block in configuration, found %d", len(config.Blocks))
+		return fmt.Errorf("le transfert nécessite exactement un bloc dans la configuration, trouvé %d", len(config.Blocks))
 	}
 
 	block := config.Blocks[0]
@@ -330,7 +326,7 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 	// Créer le gestionnaire de transfert
 	handler := internal.NewTransferHandler(cmd.Context(), options, session)
 
-	// Lancer le transfert
+	// Démarrer le transfert
 	results := handler.TransferImages(block)
 
 	// Compteurs pour le suivi
@@ -348,7 +344,7 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 
 		if result.Error != nil {
 			stats.failures++
-			fmt.Printf("❌ %s FAILED  ", phase)
+			fmt.Printf("❌ %s ÉCHEC  ", phase)
 			if result.SourceImage != "" {
 				fmt.Printf("%s", result.SourceImage)
 			}
@@ -357,12 +353,12 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 			}
 			fmt.Println()
 			if verboseLevel > 0 {
-				fmt.Printf("   Error: %v\n", result.Error)
+				fmt.Printf("   Erreur : %v\n", result.Error)
 			}
 		} else {
 			stats.success++
 			if verboseLevel > 0 {
-				fmt.Printf("✅ %s SUCCESS  ", phase)
+				fmt.Printf("✅ %s SUCCÈS  ", phase)
 				if result.SourceImage != "" {
 					fmt.Printf("%s", result.SourceImage)
 				}
@@ -372,12 +368,11 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 				fmt.Println()
 			}
 		}
-
 		counters[phase] = stats
 	}
 
 	// Afficher le résumé
-	fmt.Printf("\nTransfer Summary:\n")
+	fmt.Printf("\nRésumé du transfert :\n")
 	var totalFailures int
 
 	for _, phase := range []internal.TransferPhase{
@@ -387,16 +382,16 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 	} {
 		stats := counters[phase]
 		if stats.total > 0 {
-			fmt.Printf("\n%s Phase:\n", phase)
-			fmt.Printf("  Total:      %d\n", stats.total)
-			fmt.Printf("  Successful: %d\n", stats.success)
-			fmt.Printf("  Failed:     %d\n", stats.failures)
+			fmt.Printf("\nPhase %s :\n", phase)
+			fmt.Printf("  Total :      %d\n", stats.total)
+			fmt.Printf("  Réussites :    %d\n", stats.success)
+			fmt.Printf("  Échecs :     %d\n", stats.failures)
 			totalFailures += stats.failures
 		}
 	}
 
 	if totalFailures > 0 {
-		return fmt.Errorf("transfer completed with %d total failures", totalFailures)
+		return fmt.Errorf("le transfert s'est terminé avec %d échecs au total", totalFailures)
 	}
 
 	return nil
@@ -405,36 +400,36 @@ func handleTransfer(cmd *cobra.Command, args []string) error {
 func handleValidate(cmd *cobra.Command, args []string) error {
 	config, err := internal.ParseConfig(cfgFile)
 	if err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return fmt.Errorf("échec de la validation : %w", err)
 	}
 
 	if len(config.Blocks) != 1 {
-		return fmt.Errorf("configuration must contain exactly one block, found %d", len(config.Blocks))
+		return fmt.Errorf("la configuration doit contenir exactement un bloc, trouvé %d", len(config.Blocks))
 	}
 
 	block := config.Blocks[0]
-	
-	// Vérifier que le protocol est spécifié
-	if !strings.HasPrefix(block.SourceRegistry.Host, "http://") && 
-	   !strings.HasPrefix(block.SourceRegistry.Host, "https://") {
-		return fmt.Errorf("source registry URL must specify protocol (http:// or https://)")
+
+	// Vérifier que le protocole est spécifié
+	if !strings.HasPrefix(block.SourceRegistry.Host, "http://") &&
+		!strings.HasPrefix(block.SourceRegistry.Host, "https://") {
+		return fmt.Errorf("l'URL du registre source doit spécifier le protocole (http:// ou https://)")
 	}
 
 	if block.DestinationRegistry.Host != "" {
-		if !strings.HasPrefix(block.DestinationRegistry.Host, "http://") && 
-		   !strings.HasPrefix(block.DestinationRegistry.Host, "https://") {
-			return fmt.Errorf("destination registry URL must specify protocol (http:// or https://)")
+		if !strings.HasPrefix(block.DestinationRegistry.Host, "http://") &&
+			!strings.HasPrefix(block.DestinationRegistry.Host, "https://") {
+			return fmt.Errorf("l'URL du registre de destination doit spécifier le protocole (http:// ou https://)")
 		}
 	}
 
-	fmt.Printf("✅ Configuration is valid!\n\n")
-	fmt.Printf("Source Registry:      %s\n", block.SourceRegistry.Host)
+	fmt.Printf("✅ La configuration est valide !\n\n")
+	fmt.Printf("Registre source :      %s\n", block.SourceRegistry.Host)
 	if block.DestinationRegistry.Host != "" {
-		fmt.Printf("Destination Registry: %s\n", block.DestinationRegistry.Host)
+		fmt.Printf("Registre de destination : %s\n", block.DestinationRegistry.Host)
 	}
-	fmt.Printf("Number of Images:     %d\n", len(block.ImageMappings))
+	fmt.Printf("Nombre d'images :     %d\n", len(block.ImageMappings))
 	if len(block.Exclusions) > 0 {
-		fmt.Printf("Exclusions:          %d\n", len(block.Exclusions))
+		fmt.Printf("Exclusions :          %d\n", len(block.Exclusions))
 	}
 
 	return nil

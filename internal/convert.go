@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -18,11 +19,12 @@ type ConvertOptions struct {
 // ConvertResult représente le résultat d'une conversion d'image
 type ConvertResult struct {
 	SourceImage      string
+	LocalImage       string
 	DestinationImage string
-	Error           error
+	Error            error
 }
 
-// ConvertHandler gère la conversion (retagging) des images
+// ConvertHandler gère la conversion d'images
 type ConvertHandler struct {
 	ctx     context.Context
 	options ConvertOptions
@@ -38,14 +40,14 @@ func NewConvertHandler(ctx context.Context, options ConvertOptions) *ConvertHand
 	}
 }
 
-// ConvertImages convertit les images selon la configuration
+// ConvertImages convertit les images depuis le stockage local vers le format de destination
 func (h *ConvertHandler) ConvertImages(block *Block) <-chan ConvertResult {
 	results := make(chan ConvertResult)
 
 	go func() {
 		defer close(results)
 
-		// Vérifier que le bloc est valide pour la conversion
+		// Valider que le bloc est valide pour la conversion
 		if err := h.validateConvertBlock(block); err != nil {
 			results <- ConvertResult{Error: err}
 			return
@@ -55,18 +57,12 @@ func (h *ConvertHandler) ConvertImages(block *Block) <-chan ConvertResult {
 		for _, mapping := range block.ImageMappings {
 			// Vérifier si l'image est exclue
 			if h.isExcluded(mapping.Source, block.Exclusions) {
-				if h.options.VerboseLevel > 0 {
-					h.logger.Printf("Skipping excluded image: %s", mapping.Source)
-				}
 				continue
 			}
 
-			result := h.convertSingleImage(mapping)
+			// Convertir l'image
+			result := h.convertSingleImage(mapping.Source, mapping.Source, mapping.Destination)
 			results <- result
-
-			if result.Error != nil && h.options.CleanOnError {
-				h.cleanupImage(result.DestinationImage)
-			}
 		}
 	}()
 
@@ -76,18 +72,15 @@ func (h *ConvertHandler) ConvertImages(block *Block) <-chan ConvertResult {
 // validateConvertBlock vérifie que le bloc est valide pour la conversion
 func (h *ConvertHandler) validateConvertBlock(block *Block) error {
 	if block == nil {
-		return fmt.Errorf("block is nil")
+		return fmt.Errorf("le bloc ne peut pas être nil")
+	}
+
+	if block.DestinationRegistry.Host == "" {
+		return fmt.Errorf("l'hôte du registre de destination ne peut pas être vide")
 	}
 
 	if len(block.ImageMappings) == 0 {
-		return fmt.Errorf("no images to convert")
-	}
-
-	// Vérifier que chaque mapping a une destination
-	for _, mapping := range block.ImageMappings {
-		if mapping.Destination == "" {
-			return fmt.Errorf("image %s has no destination tag", mapping.Source)
-		}
+		return fmt.Errorf("aucun mapping d'image trouvé")
 	}
 
 	return nil
@@ -95,76 +88,61 @@ func (h *ConvertHandler) validateConvertBlock(block *Block) error {
 
 // isExcluded vérifie si une image est dans la liste des exclusions
 func (h *ConvertHandler) isExcluded(image string, exclusions []string) bool {
-	for _, excl := range exclusions {
-		if image == excl {
-			return true
+	for _, exclusion := range exclusions {
+		if strings.HasPrefix(exclusion, "!") {
+			pattern := exclusion[1:]
+			if strings.Contains(image, pattern) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 // convertSingleImage convertit une seule image
-func (h *ConvertHandler) convertSingleImage(mapping ImageMapping) ConvertResult {
+func (h *ConvertHandler) convertSingleImage(sourceImage, localImage, destinationImage string) ConvertResult {
+	result := ConvertResult{
+		SourceImage:      sourceImage,
+		LocalImage:       localImage,
+		DestinationImage: destinationImage,
+	}
+
+	// Créer une référence pour l'image locale
+	localRef, err := name.ParseReference(localImage)
+	if err != nil {
+		result.Error = fmt.Errorf("échec de l'analyse de la référence de l'image locale : %w", err)
+		return result
+	}
+
+	// Créer une référence pour l'image de destination
+	destRef, err := name.ParseReference(destinationImage)
+	if err != nil {
+		result.Error = fmt.Errorf("échec de l'analyse de la référence de l'image de destination : %w", err)
+		return result
+	}
+
+	// Options pour la conversion
+	opts := []remote.Option{
+		remote.WithContext(h.ctx),
+	}
+
+	// Charger l'image depuis le stockage local
+	img, err := remote.Image(localRef, opts...)
+	if err != nil {
+		result.Error = fmt.Errorf("échec du chargement de l'image locale : %w", err)
+		return result
+	}
+
+	// Enregistrer l'image avec la nouvelle référence
+	if err := remote.Write(destRef, img, opts...); err != nil {
+		result.Error = fmt.Errorf("échec de l'écriture de l'image : %w", err)
+		return result
+	}
+
+	// Journaliser la réussite si verbose
 	if h.options.VerboseLevel > 0 {
-		h.logger.Printf("Converting image: %s -> %s", mapping.Source, mapping.Destination)
+		h.logger.Printf("Conversion d'image réussie : %s -> %s", localImage, destinationImage)
 	}
 
-	// Construire la référence source
-	sourceRef, err := name.ParseReference(mapping.Source)
-	if err != nil {
-		return ConvertResult{
-			SourceImage: mapping.Source,
-			Error:      fmt.Errorf("invalid source reference: %w", err),
-		}
-	}
-
-	// Construire la référence destination
-	destRef, err := name.ParseReference(mapping.Destination)
-	if err != nil {
-		return ConvertResult{
-			SourceImage: mapping.Source,
-			Error:      fmt.Errorf("invalid destination reference: %w", err),
-		}
-	}
-
-	// Récupérer l'image source depuis le registre local
-	img, err := remote.Image(sourceRef)
-	if err != nil {
-		return ConvertResult{
-			SourceImage:      mapping.Source,
-			DestinationImage: mapping.Destination,
-			Error:           fmt.Errorf("failed to get source image: %w", err),
-		}
-	}
-
-	// Tagger l'image avec la nouvelle référence
-	if err := remote.Write(destRef, img); err != nil {
-		return ConvertResult{
-			SourceImage:      mapping.Source,
-			DestinationImage: mapping.Destination,
-			Error:           fmt.Errorf("failed to tag image: %w", err),
-		}
-	}
-
-	if h.options.VerboseLevel > 1 {
-		h.logger.Printf("Successfully converted %s to %s", mapping.Source, mapping.Destination)
-	}
-
-	return ConvertResult{
-		SourceImage:      mapping.Source,
-		DestinationImage: mapping.Destination,
-	}
-}
-
-// cleanupImage nettoie une image en cas d'erreur
-func (h *ConvertHandler) cleanupImage(image string) {
-	if h.options.VerboseLevel > 0 {
-		h.logger.Printf("Cleaning up image: %s", image)
-	}
-	// Supprimer le tag local
-	if ref, err := name.ParseReference(image); err == nil {
-		if err := remote.Delete(ref); err != nil && h.options.VerboseLevel > 0 {
-			h.logger.Printf("Failed to cleanup image %s: %v", image, err)
-		}
-	}
+	return result
 }

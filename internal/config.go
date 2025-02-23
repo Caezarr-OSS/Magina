@@ -8,12 +8,12 @@ import (
 	brmsparser "github.com/Caezarr-OSS/brms-parser/brms"
 )
 
-// Config représente la configuration complète pour la migration d'images
+// Config represents the complete configuration for image migration
 type Config struct {
 	Blocks []*Block
 }
 
-// Block représente un bloc de migration entre deux registries
+// Block represents a migration block between two registries
 type Block struct {
 	SourceRegistry      Registry
 	DestinationRegistry Registry
@@ -21,42 +21,42 @@ type Block struct {
 	Exclusions          []string
 }
 
-// Registry représente un registry d'images
+// Registry represents an image registry
 type Registry struct {
-	Host string // Le nom d'hôte du registry (e.g., "registry.example.com")
+	Host string // The registry hostname (e.g., "registry.example.com")
 }
 
-// ImageMapping représente le mapping entre une image source et une image destination
+// ImageMapping represents the mapping between a source and destination image
 type ImageMapping struct {
 	Source      string
 	Destination string
 }
 
-// ParseConfig parse un fichier BRMS et retourne la configuration
+// ParseConfig parses a BRMS file and returns the configuration
 func ParseConfig(configPath string) (*Config, error) {
-	// Convertir en chemin absolu
+	// Convert to absolute path
 	absPath, err := filepath.Abs(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// Créer un nouveau parser BRMS
+	// Create a new BRMS parser
 	parser := brmsparser.NewParser(absPath, brmsparser.LogLevelInfo)
 
-	// Parser le fichier BRMS
+	// Parse the BRMS file
 	parsed, err := parser.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse BRMS file: %w", err)
 	}
 
-	// Convertir en configuration
+	// Convert to configuration
 	config := &Config{
 		Blocks: make([]*Block, 0),
 	}
 
-	// Traiter chaque bloc
+	// Process each block
 	for sourceReg, destReg := range parsed.Blocks {
-		// Parser les registries source et destination
+		// Parse source and destination registries
 		sourceRegistry, err := parseRegistryURL(sourceReg)
 		if err != nil {
 			return nil, fmt.Errorf("invalid source registry: %w", err)
@@ -67,7 +67,7 @@ func ParseConfig(configPath string) (*Config, error) {
 			return nil, fmt.Errorf("invalid destination registry: %w", err)
 		}
 
-		// Créer les mappings d'images
+		// Create image mappings
 		mappings := make([]ImageMapping, 0)
 		for _, mapping := range parsed.Entities {
 			mappings = append(mappings, ImageMapping{
@@ -76,13 +76,13 @@ func ParseConfig(configPath string) (*Config, error) {
 			})
 		}
 
-		// Créer les exclusions
+		// Create exclusions
 		exclusions := make([]string, 0)
 		for _, exclusion := range parsed.IgnoredItems {
 			exclusions = append(exclusions, exclusion.Source)
 		}
 
-		// Ajouter le bloc à la configuration
+		// Add block to configuration
 		config.Blocks = append(config.Blocks, &Block{
 			SourceRegistry:      sourceRegistry,
 			DestinationRegistry: destRegistry,
@@ -94,19 +94,19 @@ func ParseConfig(configPath string) (*Config, error) {
 	return config, nil
 }
 
-// parseRegistryURL parse une URL de registry et retourne une structure Registry
+// parseRegistryURL parses a registry URL and returns a Registry structure
 func parseRegistryURL(url string) (Registry, error) {
-	// Nettoyer l'URL
+	// Clean URL
 	url = strings.TrimSpace(url)
 	if url == "" {
 		return Registry{}, fmt.Errorf("registry URL cannot be empty")
 	}
 
-	// Retirer le protocole s'il existe
+	// Remove protocol if present
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "https://")
 
-	// Retirer les slashes au début et à la fin
+	// Remove leading and trailing slashes
 	url = strings.Trim(url, "/")
 
 	return Registry{

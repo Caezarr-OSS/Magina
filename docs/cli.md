@@ -1,26 +1,26 @@
-# Documentation CLI Magina
+# Magina CLI Documentation
 
-## Vue d'Ensemble
+## Overview
 
-Magina est un outil CLI pour la gestion et la migration d'images OCI entre registries.
+Magina is a CLI tool for managing and migrating OCI images between registries.
 
-## Commandes Disponibles
+## Available Commands
 
 ### `magina export`
 
-Exporte des images depuis un registry source vers l'hôte local.
+Exports images from a source registry to the local host.
 
 ```bash
 magina export -c <config-file> [flags]
 ```
 
-**Flags :**
-- `-c, --config` : Fichier de configuration BRMS (obligatoire)
-- `-v, --verbose` : Niveau de verbosité (0-3)
-- `--clean-on-error` : Nettoie les images en cas d'erreur
-- `--resume` : Continue l'opération même en cas d'erreur
+**Flags:**
+- `-c, --config` : BRMS configuration file (required)
+- `-v, --verbose` : Verbosity level (0-3)
+- `--clean-on-error` : Clean up images on error
+- `--resume` : Continue operation even after errors
 
-**Format BRMS :**
+**BRMS Format:**
 ```brms
 [protocol://export-host|]
 image1:tag1|newimage1:tag1
@@ -28,19 +28,19 @@ image1:tag1|newimage1:tag1
 
 ### `magina import`
 
-Importe des images locales vers un registry de destination.
+Imports local images to a destination registry.
 
 ```bash
 magina import -c <config-file> [flags]
 ```
 
-**Flags :**
-- `-c, --config` : Fichier de configuration BRMS (obligatoire)
-- `-v, --verbose` : Niveau de verbosité (0-3)
-- `--clean-on-error` : Nettoie les images en cas d'erreur
-- `--resume` : Continue l'opération même en cas d'erreur
+**Flags:**
+- `-c, --config` : BRMS configuration file (required)
+- `-v, --verbose` : Verbosity level (0-3)
+- `--clean-on-error` : Clean up images on error
+- `--resume` : Continue operation even after errors
 
-**Format BRMS :**
+**BRMS Format:**
 ```brms
 [|protocol://import-host]
 image1:tag1|newimage1:tag1
@@ -48,19 +48,19 @@ image1:tag1|newimage1:tag1
 
 ### `magina transfer`
 
-Effectue un transfert complet d'images entre deux registries.
+Performs a complete image transfer between two registries.
 
 ```bash
 magina transfer -c <config-file> [flags]
 ```
 
-**Flags :**
-- `-c, --config` : Fichier de configuration BRMS (obligatoire)
-- `-v, --verbose` : Niveau de verbosité (0-3)
-- `--clean-on-error` : Nettoie les images en cas d'erreur
-- `--resume` : Continue l'opération même en cas d'erreur
+**Flags:**
+- `-c, --config` : BRMS configuration file (required)
+- `-v, --verbose` : Verbosity level (0-3)
+- `--clean-on-error` : Clean up images on error
+- `--resume` : Continue operation even after errors
 
-**Format BRMS :**
+**BRMS Format:**
 ```brms
 [protocol://source-host|protocol://dest-host]
 image1:tag1|newimage1:tag1
@@ -68,26 +68,26 @@ image1:tag1|newimage1:tag1
 
 ### `magina validate`
 
-Valide un fichier de configuration BRMS.
+Validates a BRMS configuration file.
 
 ```bash
 magina validate -c <config-file>
 ```
 
-**Flags :**
-- `-c, --config` : Fichier de configuration BRMS (obligatoire)
-- `-v, --verbose` : Niveau de verbosité (0-3)
+**Flags:**
+- `-c, --config` : BRMS configuration file (required)
+- `-v, --verbose` : Verbosity level (0-3)
 
-## Niveaux de Verbosité
+## Verbosity Levels
 
-- `0` : Silencieux (erreurs uniquement)
-- `1` : Normal (succès + erreurs)
-- `2` : Détaillé (progression + métadonnées)
-- `3` : Debug (toutes les informations)
+- `0` : Silent (errors only)
+- `1` : Normal (success + errors)
+- `2` : Detailed (progress + metadata)
+- `3` : Debug (all information)
 
-## Format BRMS Détaillé
+## Detailed BRMS Format
 
-### Structure Générale
+### General Structure
 ```brms
 [source|destination]
 image_mapping1
@@ -95,23 +95,23 @@ image_mapping2
 !exclusion1
 ```
 
-### Exemples
+### Examples
 
-#### Export Simple
+#### Simple Export
 ```brms
 [https://registry.company.com|]
 app/backend:1.0.0|backend:local
 app/frontend:1.0.0|frontend:local
 ```
 
-#### Import Simple
+#### Simple Import
 ```brms
 [|https://docker.io]
 backend:local|company/backend:latest
 frontend:local|company/frontend:latest
 ```
 
-#### Transfert avec Exclusions
+#### Transfer with Exclusions
 ```brms
 [https://registry.company.com|https://docker.io]
 !test/*
@@ -120,29 +120,29 @@ app/backend:1.0.0|company/backend:latest
 app/frontend:1.0.0|company/frontend:latest
 ```
 
-## Stockage Local des Images
+## Local Image Storage
 
-Magina stocke les images localement sans nécessiter de runtime de conteneur (Docker/Podman). Les images sont stockées sous forme de fichiers dans le système de fichiers local en utilisant le format OCI standard.
+Magina stores images locally without requiring a container runtime (Docker/Podman). Images are stored as files in the local file system using the OCI standard format.
 
-### Format de Stockage
-Les images exportées sont stockées dans le format OCI natif, ce qui les rend compatibles avec n'importe quel runtime OCI (Docker, Podman, etc.) si vous souhaitez les utiliser plus tard.
+### Storage Format
+Exported images are stored in the native OCI format, making them compatible with any OCI runtime (Docker, Podman, etc.) if you wish to use them later.
 
-### Erreurs Communes
-- `failed to parse source image reference` : Format d'image invalide
-- `failed to load source image` : Erreur de connexion au registry ou d'authentification
-- `failed to save image locally` : Problème d'écriture locale (permissions, espace disque)
+### Common Errors
+- `failed to parse source image reference` : Invalid image format
+- `failed to load source image` : Connection or authentication error to registry
+- `failed to save image locally` : Local write issue (permissions, disk space)
 
-Note : Magina ne vérifie pas la présence d'un runtime de conteneur car il n'en a pas besoin pour fonctionner.
+Note: Magina does not check for the presence of a container runtime as it does not need one to function.
 
-## Codes de Retour
+## Return Codes
 
-- `0` : Succès
-- `1` : Erreur générale
-- `2` : Erreur de configuration
-- `3` : Erreur de connexion
-- `4` : Erreur d'authentification
+- `0` : Success
+- `1` : General error
+- `2` : Configuration error
+- `3` : Connection error
+- `4` : Authentication error
 
-## Variables d'Environnement
+## Environment Variables
 
 ```bash
 # Proxy
@@ -156,24 +156,23 @@ DOCKER_CERT_PATH="/path/to/certs"
 DOCKER_TLS_VERIFY="1"
 ```
 
-## Exemples d'Utilisation
+## Usage Examples
 
-### Export avec Nettoyage
+### Export with Cleanup
 ```bash
 magina export -c config.brms --clean-on-error -v 1
 ```
 
-### Import avec Reprise
+### Import with Resume
 ```bash
 magina import -c config.brms --resume -v 2
 ```
 
-### Transfert Complet en Mode Debug
+### Complete Transfer in Debug Mode
 ```bash
 magina transfer -c config.brms --clean-on-error --resume -v 3
 ```
 
-### Validation Simple
+### Simple Validation
 ```bash
 magina validate -c config.brms
-```

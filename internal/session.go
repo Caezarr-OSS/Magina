@@ -8,22 +8,22 @@ import (
 	"sync"
 )
 
-// Session représente une session de l'application
-// qui maintient les credentials en mémoire
+// Session represents a session of the application
+// that maintains credentials in memory
 type Session struct {
 	credentials map[string]*Credentials
 	mu          sync.RWMutex
 }
 
-// NewSession crée une nouvelle session
+// NewSession creates a new session
 func NewSession() *Session {
 	return &Session{
 		credentials: make(map[string]*Credentials),
 	}
 }
 
-// GetCredentials récupère les credentials pour un registry
-// Si les credentials n'existent pas, demande à l'utilisateur
+// GetCredentials retrieves the credentials for a registry
+// If the credentials do not exist, asks the user
 func (s *Session) GetCredentials(registryURL string) (*Credentials, error) {
 	s.mu.RLock()
 	creds, exists := s.credentials[registryURL]
@@ -33,13 +33,13 @@ func (s *Session) GetCredentials(registryURL string) (*Credentials, error) {
 		return creds, nil
 	}
 
-	// Demander les credentials à l'utilisateur
+	// Ask the user for credentials
 	creds, err := s.promptCredentials(registryURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Stocker les credentials en mémoire
+	// Store the credentials in memory
 	s.mu.Lock()
 	s.credentials[registryURL] = creds
 	s.mu.Unlock()
@@ -47,7 +47,7 @@ func (s *Session) GetCredentials(registryURL string) (*Credentials, error) {
 	return creds, nil
 }
 
-// promptCredentials demande les credentials à l'utilisateur
+// promptCredentials asks the user for credentials
 func (s *Session) promptCredentials(registryURL string) (*Credentials, error) {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -73,11 +73,11 @@ func (s *Session) promptCredentials(registryURL string) (*Credentials, error) {
 	}, nil
 }
 
-// Clear efface tous les credentials de la session
+// Clear clears all credentials from the session
 func (s *Session) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
-	// Effacer la map des credentials
+	// Clear the credentials map
 	s.credentials = make(map[string]*Credentials)
 }

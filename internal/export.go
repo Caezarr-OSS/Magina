@@ -11,28 +11,28 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-// ExportOptions contient les options pour l'opération d'export
+// ExportOptions contains the options for the export operation
 type ExportOptions struct {
 	CleanOnError bool
 	VerboseLevel int
 	Credentials  *Credentials
 }
 
-// ExportResult représente le résultat d'un export d'image
+// ExportResult represents the result of an image export
 type ExportResult struct {
 	SourceImage  string
 	LocalImage   string
 	Error        error
 }
 
-// ExportHandler gère l'export des images
+// ExportHandler handles image exports
 type ExportHandler struct {
 	ctx     context.Context
 	options ExportOptions
 	logger  *log.Logger
 }
 
-// NewExportHandler crée un nouveau gestionnaire d'export
+// NewExportHandler creates a new export handler
 func NewExportHandler(ctx context.Context, options ExportOptions) *ExportHandler {
 	return &ExportHandler{
 		ctx:     ctx,
@@ -41,30 +41,30 @@ func NewExportHandler(ctx context.Context, options ExportOptions) *ExportHandler
 	}
 }
 
-// ExportImages exporte les images depuis le registry source
+// ExportImages exports images from the source registry
 func (h *ExportHandler) ExportImages(block *Block) <-chan ExportResult {
 	results := make(chan ExportResult)
 
 	go func() {
 		defer close(results)
 
-		// Vérifier que le bloc est valide pour l'export
+		// Validate that the block is valid for export
 		if err := h.validateExportBlock(block); err != nil {
 			results <- ExportResult{Error: err}
 			return
 		}
 
-		// Configurer l'authentification
+		// Configure authentication
 		auth := h.getAuthConfig(block.SourceRegistry.Host)
 
-		// Traiter chaque mapping d'image
+		// Process each image mapping
 		for _, mapping := range block.ImageMappings {
-			// Vérifier si l'image est exclue
+			// Check if the image is excluded
 			if h.isExcluded(mapping.Source, block.Exclusions) {
 				continue
 			}
 
-			// Exporter l'image
+			// Export the image
 			result := h.exportSingleImage(mapping.Source, mapping.Destination, auth)
 			results <- result
 		}
@@ -73,7 +73,7 @@ func (h *ExportHandler) ExportImages(block *Block) <-chan ExportResult {
 	return results
 }
 
-// validateExportBlock vérifie que le bloc est valide pour l'export
+// validateExportBlock verifies that the block is valid for export
 func (h *ExportHandler) validateExportBlock(block *Block) error {
 	if block == nil {
 		return fmt.Errorf("block cannot be nil")
@@ -90,7 +90,7 @@ func (h *ExportHandler) validateExportBlock(block *Block) error {
 	return nil
 }
 
-// getAuthConfig configure l'authentification pour le registry
+// getAuthConfig configures authentication for the registry
 func (h *ExportHandler) getAuthConfig(registryURL string) authn.Authenticator {
 	if h.options.Credentials == nil {
 		return authn.Anonymous
@@ -103,7 +103,7 @@ func (h *ExportHandler) getAuthConfig(registryURL string) authn.Authenticator {
 	})
 }
 
-// isExcluded vérifie si une image est dans la liste des exclusions
+// isExcluded checks if an image is in the exclusion list
 func (h *ExportHandler) isExcluded(image string, exclusions []string) bool {
 	for _, exclusion := range exclusions {
 		if strings.Contains(image, exclusion) {
@@ -113,54 +113,54 @@ func (h *ExportHandler) isExcluded(image string, exclusions []string) bool {
 	return false
 }
 
-// exportSingleImage exporte une seule image
+// exportSingleImage exports a single image
 func (h *ExportHandler) exportSingleImage(sourceImage, localImage string, auth authn.Authenticator) ExportResult {
 	result := ExportResult{
 		SourceImage: sourceImage,
 		LocalImage:  localImage,
 	}
 
-	// Créer une référence pour l'image source
+	// Create a reference for the source image
 	sourceRef, err := name.ParseReference(sourceImage)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to parse source image reference: %w", err)
 		return result
 	}
 
-	// Créer une référence pour l'image locale
+	// Create a reference for the local image
 	localRef, err := name.ParseReference(localImage)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to parse local image reference: %w", err)
 		return result
 	}
 
-	// Options pour l'export
+	// Options for export
 	opts := []remote.Option{
 		remote.WithAuth(auth),
 		remote.WithContext(h.ctx),
 	}
 
-	// Charger l'image depuis le registry source
+	// Load the image from the source registry
 	descriptor, err := remote.Get(sourceRef, opts...)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to load source image: %w", err)
 		return result
 	}
 
-	// Obtenir l'image depuis le descriptor
+	// Get the image from the descriptor
 	img, err := descriptor.Image()
 	if err != nil {
 		result.Error = fmt.Errorf("failed to get image from descriptor: %w", err)
 		return result
 	}
 
-	// Sauvegarder l'image localement
+	// Save the image locally
 	if err := remote.Write(localRef, img, opts...); err != nil {
 		result.Error = fmt.Errorf("failed to save image locally: %w", err)
 		return result
 	}
 
-	// Log le succès si verbose
+	// Log success if verbose
 	if h.options.VerboseLevel > 0 {
 		h.logger.Printf("Successfully exported image: %s -> %s", sourceImage, localImage)
 	}

@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-// TransferPhase représente une phase du transfert
+// TransferPhase represents a phase in the transfer process
 type TransferPhase string
 
 const (
@@ -15,23 +15,23 @@ const (
 	PhaseImport  TransferPhase = "IMPORT"
 )
 
-// TransferOptions contient les options pour l'opération de transfert
+// TransferOptions contains options for the transfer process
 type TransferOptions struct {
 	CleanOnError  bool
 	VerboseLevel  int
 	ResumeOnError bool
-	Credentials   *Credentials
 }
 
-// TransferResult représente le résultat d'un transfert d'image
+// TransferResult represents the result of a transfer operation
 type TransferResult struct {
 	Phase            TransferPhase
 	SourceImage      string
+	LocalImage       string
 	DestinationImage string
 	Error            error
 }
 
-// TransferHandler gère le transfert des images
+// TransferHandler manages the complete transfer workflow
 type TransferHandler struct {
 	ctx     context.Context
 	options TransferOptions
@@ -39,7 +39,7 @@ type TransferHandler struct {
 	session *Session
 }
 
-// NewTransferHandler crée un nouveau gestionnaire de transfert
+// NewTransferHandler creates a new TransferHandler instance
 func NewTransferHandler(ctx context.Context, options TransferOptions, session *Session) *TransferHandler {
 	return &TransferHandler{
 		ctx:     ctx,
@@ -49,34 +49,40 @@ func NewTransferHandler(ctx context.Context, options TransferOptions, session *S
 	}
 }
 
-// TransferImages transfère les images d'un registry à un autre
+// TransferImages executes the complete transfer workflow
 func (h *TransferHandler) TransferImages(block *Block) <-chan TransferResult {
 	results := make(chan TransferResult)
 
 	go func() {
 		defer close(results)
 
-		// Vérifier que le bloc est valide
+		// Validate that the block is valid for transfer
 		if err := h.validateTransferBlock(block); err != nil {
 			results <- TransferResult{Error: err}
 			return
 		}
 
-		// Récupérer les credentials pour le registry source
+		// Get credentials for source registry
 		sourceCreds, err := h.session.GetCredentials(block.SourceRegistry.Host)
 		if err != nil {
-			results <- TransferResult{Error: fmt.Errorf("failed to get source credentials: %w", err)}
+			results <- TransferResult{
+				Phase: PhaseExport,
+				Error: fmt.Errorf("failed to get source credentials: %w", err),
+			}
 			return
 		}
 
-		// Récupérer les credentials pour le registry de destination
+		// Get credentials for destination registry
 		destCreds, err := h.session.GetCredentials(block.DestinationRegistry.Host)
 		if err != nil {
-			results <- TransferResult{Error: fmt.Errorf("failed to get destination credentials: %w", err)}
+			results <- TransferResult{
+				Phase: PhaseImport,
+				Error: fmt.Errorf("failed to get destination credentials: %w", err),
+			}
 			return
 		}
 
-		// Phase 1: Export
+		// Export phase
 		exportOpts := ExportOptions{
 			CleanOnError: h.options.CleanOnError,
 			VerboseLevel: h.options.VerboseLevel,
@@ -84,27 +90,39 @@ func (h *TransferHandler) TransferImages(block *Block) <-chan TransferResult {
 		}
 		exportHandler := NewExportHandler(h.ctx, exportOpts)
 		exportResults := exportHandler.ExportImages(block)
-
 		for result := range exportResults {
-			if result.Error != nil {
-				results <- TransferResult{
-					Phase:       PhaseExport,
-					SourceImage: result.SourceImage,
-					Error:      result.Error,
-				}
-				if !h.options.ResumeOnError {
-					return
-				}
-			} else {
-				results <- TransferResult{
-					Phase:            PhaseExport,
-					SourceImage:      result.SourceImage,
-					DestinationImage: result.LocalImage,
-				}
+			results <- TransferResult{
+				Phase:       PhaseExport,
+				SourceImage: result.SourceImage,
+				LocalImage:  result.LocalImage,
+				Error:       result.Error,
+			}
+			if result.Error != nil && !h.options.ResumeOnError {
+				return
 			}
 		}
 
-		// Phase 3: Import
+		// Convert phase
+		convertOpts := ConvertOptions{
+			CleanOnError: h.options.CleanOnError,
+			VerboseLevel: h.options.VerboseLevel,
+		}
+		convertHandler := NewConvertHandler(h.ctx, convertOpts)
+		convertResults := convertHandler.ConvertImages(block)
+		for result := range convertResults {
+			results <- TransferResult{
+				Phase:            PhaseConvert,
+				SourceImage:      result.SourceImage,
+				LocalImage:       result.LocalImage,
+				DestinationImage: result.DestinationImage,
+				Error:            result.Error,
+			}
+			if result.Error != nil && !h.options.ResumeOnError {
+				return
+			}
+		}
+
+		// Import phase
 		importOpts := ImportOptions{
 			CleanOnError: h.options.CleanOnError,
 			VerboseLevel: h.options.VerboseLevel,
@@ -112,24 +130,15 @@ func (h *TransferHandler) TransferImages(block *Block) <-chan TransferResult {
 		}
 		importHandler := NewImportHandler(h.ctx, importOpts)
 		importResults := importHandler.ImportImages(block)
-
 		for result := range importResults {
-			if result.Error != nil {
-				results <- TransferResult{
-					Phase:            PhaseImport,
-					SourceImage:      result.LocalImage,
-					DestinationImage: result.DestinationImage,
-					Error:           result.Error,
-				}
-				if !h.options.ResumeOnError {
-					return
-				}
-			} else {
-				results <- TransferResult{
-					Phase:            PhaseImport,
-					SourceImage:      result.LocalImage,
-					DestinationImage: result.DestinationImage,
-				}
+			results <- TransferResult{
+				Phase:            PhaseImport,
+				LocalImage:       result.LocalImage,
+				DestinationImage: result.DestinationImage,
+				Error:            result.Error,
+			}
+			if result.Error != nil && !h.options.ResumeOnError {
+				return
 			}
 		}
 	}()
@@ -137,18 +146,18 @@ func (h *TransferHandler) TransferImages(block *Block) <-chan TransferResult {
 	return results
 }
 
-// validateTransferBlock vérifie que le bloc est valide pour le transfert
+// validateTransferBlock validates that the block is valid for transfer
 func (h *TransferHandler) validateTransferBlock(block *Block) error {
 	if block == nil {
-		return fmt.Errorf("block cannot be nil")
+		return fmt.Errorf("the block cannot be nil")
 	}
 
 	if block.SourceRegistry.Host == "" {
-		return fmt.Errorf("source registry host cannot be empty")
+		return fmt.Errorf("the source registry host cannot be empty")
 	}
 
 	if block.DestinationRegistry.Host == "" {
-		return fmt.Errorf("destination registry host cannot be empty")
+		return fmt.Errorf("the destination registry host cannot be empty")
 	}
 
 	if len(block.ImageMappings) == 0 {
